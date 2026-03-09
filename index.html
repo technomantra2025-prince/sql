@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HAWKINS LAB: PROTOCOL BLUE [MULTI-TABLE]</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alasql@1.7.3/dist/alasql.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=VT323&family=Russo+One&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- CYBER BLUE & UPSIDE DOWN THEME --- */
+        :root { 
+            --color-bg: #000510; 
+            --color-primary: #00f0ff; /* Cyan */
+            --color-secondary: #0055ff; /* Deep Blue */
+            --color-terminal-green: #00ff41; 
+            --color-alert: #ff0055; 
+            --color-upside-down: #8a00d4; /* Purple/Dust */
+            --color-panel: rgba(0, 20, 40, 0.9);
+            --font-main: 'Special Elite', cursive;
+            --font-term: 'VT323', monospace;
+            --font-display: 'Russo One', sans-serif;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.05) 0%, transparent 60%),
+                linear-gradient(rgba(0, 85, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 85, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+            color: #e0f0ff;
+            font-family: var(--font-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+        }
+
+        /* EFFECTS */
+        .scanlines {
+            position: fixed; inset: 0; 
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(0, 240, 255, 0.06), rgba(0, 0, 255, 0.02), rgba(0, 240, 255, 0.06));
+            background-size: 100% 4px, 3px 100%; 
+            pointer-events: none; z-index: 999; opacity: 0.6;
+        }
+        
+        .vignette {
+            position: fixed; inset: 0; 
+            background: radial-gradient(circle, transparent 60%, #000510 100%);
+            pointer-events: none; z-index: 998;
+        }
+
+        .crt-flicker { animation: flicker 0.15s infinite; }
+        @keyframes flicker { 
+            0% { opacity: 0.98; } 5% { opacity: 0.95; } 10% { opacity: 0.9; } 15% { opacity: 0.95; } 20% { opacity: 0.99; } 
+            100% { opacity: 0.98; } 
+        }
+
+        .glitch-text {
+            position: relative;
+            color: var(--color-primary);
+        }
+        .glitch-text::before, .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+        .glitch-text::before {
+            left: 2px; text-shadow: -1px 0 #ff0055; clip: rect(24px, 550px, 90px, 0);
+            animation: glitch-anim-1 2.5s infinite linear alternate-reverse;
+        }
+        .glitch-text::after {
+            left: -2px; text-shadow: -1px 0 var(--color-upside-down); clip: rect(85px, 550px, 140px, 0);
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+        @keyframes glitch-anim-1 {
+            0% { clip: rect(10px, 9999px, 30px, 0); }
+            20% { clip: rect(80px, 9999px, 100px, 0); }
+            40% { clip: rect(5px, 9999px, 60px, 0); }
+            100% { clip: rect(40px, 9999px, 90px, 0); }
+        }
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(60px, 9999px, 80px, 0); }
+            20% { clip: rect(10px, 9999px, 40px, 0); }
+            40% { clip: rect(90px, 9999px, 110px, 0); }
+            100% { clip: rect(20px, 9999px, 50px, 0); }
+        }
+
+        .font-terminal { font-family: var(--font-term); letter-spacing: 1px; }
+        .font-display { font-family: var(--font-display); text-transform: uppercase; }
+
+        .title-glitch {
+            color: var(--color-primary);
+            text-shadow: 0 0 5px var(--color-primary), 2px 2px 0px var(--color-secondary);
+            animation: glitch-skew 3s infinite;
+        }
+        @keyframes glitch-skew {
+            0% { transform: skew(0deg); }
+            2% { transform: skew(-2deg); }
+            4% { transform: skew(2deg); }
+            6% { transform: skew(0deg); }
+            100% { transform: skew(0deg); }
+        }
+
+        .glass-panel {
+            background: var(--color-panel);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 85, 255, 0.1);
+        }
+
+        /* BUTTONS */
+        .btn-retro {
+            background: transparent; 
+            border: 2px solid var(--color-primary);
+            color: var(--color-primary); 
+            font-family: var(--font-term); font-size: 1.2rem; 
+            padding: 10px 30px; cursor: pointer; 
+            text-transform: uppercase; letter-spacing: 2px;
+            transition: 0.2s; position: relative; overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+        .btn-retro:hover { 
+            background: var(--color-primary); color: #000; 
+            box-shadow: 0 0 25px var(--color-primary);
+        }
+        
+        .btn-action {
+            background: rgba(0,0,0,0.5); 
+            border: 1px solid var(--color-primary);
+            color: var(--color-primary); 
+            font-family: var(--font-term); font-size: 0.9rem; 
+            padding: 4px 12px; cursor: pointer; text-transform: uppercase;
+            transition: 0.2s;
+        }
+        .btn-action:hover { background: var(--color-primary); color: #000; }
+        
+        .btn-danger {
+            border-color: var(--color-alert); color: var(--color-alert);
+        }
+        .btn-danger:hover { background: var(--color-alert); color: #fff; }
+
+        .btn-nav {
+            background: transparent;
+            border: 1px solid #445577;
+            color: #8899aa;
+            padding: 5px 15px;
+            cursor: pointer;
+            font-family: var(--font-term);
+            text-transform: uppercase;
+        }
+        .btn-nav:hover { border-color: #fff; color: #fff; }
+        .btn-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .btn-submit {
+            background: var(--color-primary); color: black; border: none;
+            font-family: var(--font-display); padding: 8px 20px;
+            box-shadow: 0 0 15px var(--color-primary);
+            animation: pulse-blue 2s infinite;
+        }
+        @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 240, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0); } }
+
+        /* LAYOUT */
+        .lab-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; position: relative; z-index: 10; }
+        @media (min-width: 1024px) { .lab-container { flex-direction: row; } }
+        
+        .visual-feed { 
+            height: 25vh; position: relative; border-bottom: 2px solid var(--color-primary); 
+            background: #000; overflow: hidden;
+        }
+        @media (min-width: 1024px) { .visual-feed { flex: 1; height: 100%; border-bottom: none; border-right: 2px solid var(--color-primary); max-width: 40%; } }
+        
+        .scene-image { 
+            width: 100%; height: 100%; object-fit: cover; 
+            filter: contrast(1.2) brightness(0.7) hue-rotate(180deg) saturate(1.5); 
+            transition: all 0.5s ease;
+        }
+
+        .hud-overlay {
+            position: absolute; inset: 0; 
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.9) 100%);
+            pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between; padding: 15px;
+        }
+
+        /* --- TERMINAL & SIDEBAR --- */
+        .terminal-feed { 
+            flex: 1; 
+            display: flex; flex-direction: column; 
+            background: rgba(0, 5, 16, 0.98); 
+            border-top: 2px solid #1a2a4a;
+            height: 75vh;
+            overflow: hidden; 
+        }
+        @media (min-width: 1024px) { 
+            .terminal-feed { 
+                height: 100%; border-top: none; 
+                flex-direction: row; 
+            } 
+        }
+
+        .terminal-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            color: var(--color-terminal-green);
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .database-sidebar {
+            width: 100%;
+            height: 200px;
+            background: #020408; 
+            border-top: 2px solid var(--color-secondary);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            font-family: var(--font-term);
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        @media (min-width: 1024px) {
+            .database-sidebar {
+                width: 280px;
+                height: 100%;
+                border-top: none;
+                border-left: 2px solid var(--color-secondary);
+                overflow-y: auto;
+            }
+        }
+        
+        .database-sidebar::-webkit-scrollbar { width: 6px; }
+        .database-sidebar::-webkit-scrollbar-track { background: #000; }
+        .database-sidebar::-webkit-scrollbar-thumb { background: var(--color-secondary); }
+
+        .terminal-header {
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            padding-bottom: 8px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        #terminal-output {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            margin-bottom: 10px;
+            padding-right: 5px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-secondary) #000;
+        }
+        #terminal-output::-webkit-scrollbar { width: 6px; }
+        #terminal-output::-webkit-scrollbar-thumb { background: var(--color-secondary); }
+
+        .sql-wrapper {
+            background: #000; border: 1px solid #1a2a4a; padding: 10px;
+            display: flex; gap: 10px; align-items: center;
+            flex-shrink: 0;
+        }
+        .sql-input { 
+            flex: 1; background: transparent; border: none; 
+            color: var(--color-primary); font-family: var(--font-term); font-size: 1.2rem; padding: 5px; 
+            outline: none; text-transform: uppercase;
+        }
+        
+        /* --- STORY CARDS --- */
+        .story-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; width: 100%; padding: 20px; }
+        
+        .story-card {
+            background: linear-gradient(135deg, rgba(10, 20, 40, 0.95), rgba(0,0,0,0.98));
+            border: 1px solid #003355;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 0; 
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .story-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            border-color: var(--color-primary);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
+        }
+
+        .story-header {
+            padding: 15px;
+            background: rgba(0, 240, 255, 0.05);
+            border-bottom: 1px solid #003355;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .story-body {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .classified-stamp {
+            position: absolute;
+            top: 20px; right: -30px;
+            background: var(--color-alert);
+            color: white;
+            padding: 5px 30px;
+            transform: rotate(45deg);
+            font-weight: bold;
+            font-size: 0.8rem;
+            box-shadow: 0 0 5px var(--color-alert);
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* ADMIN STYLES */
+        .admin-input, .admin-textarea, .admin-select {
+            width: 100%; background: #0a0f20; border: 1px solid #1a2a4a; color: #aaccff; 
+            padding: 8px; margin-bottom: 8px; font-family: var(--font-term);
+            text-transform: uppercase !important;
+        }
+        .admin-input:focus, .admin-textarea:focus { border-color: var(--color-primary); outline: none; }
+
+        .table-stack-item {
+            background: #000;
+            border-left: 3px solid var(--color-secondary);
+            padding: 10px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hidden { display: none !important; }
+        .text-glow { text-shadow: 0 0 5px currentColor; }
+        .text-blue-glow { text-shadow: 0 0 10px var(--color-primary); color: var(--color-primary); }
+
+        /* Modal */
+        .modal {
+            position: fixed; inset: 0; background: rgba(0,5,16,0.95); z-index: 200;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: #0a0f20; border: 2px solid var(--color-primary); width: 90%; max-width: 800px;
+            max-height: 90vh; overflow-y: auto; padding: 20px;
+            box-shadow: 0 0 50px rgba(0, 240, 255, 0.2);
+        }
+
+        /* 2 Sec Intro */
+        #screen-intro {
+            position: fixed; inset: 0; z-index: 1000;
+            background: #000; display: flex; align-items: center; justify-content: center;
+        }
+        .intro-text {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            color: var(--color-primary);
+            text-shadow: 0 0 20px var(--color-primary);
+            animation: pulse-blue 1s infinite alternate;
+            text-align: center;
+        }
+
+        /* SCORE SCREEN */
+        #screen-score {
+            position: fixed; inset: 0; z-index: 60;
+            background: rgba(0, 5, 16, 0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+        }
+        .score-circle {
+            width: 200px; height: 200px;
+            border-radius: 50%;
+            border: 5px solid var(--color-primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 4rem;
+            color: #fff;
+            font-family: var(--font-display);
+            box-shadow: 0 0 30px var(--color-primary);
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .score-circle::after {
+            content: 'INTEGRITY';
+            position: absolute; bottom: 30px; font-size: 1rem; color: var(--color-primary); font-family: var(--font-term);
+        }
+        
+        .story-line-box {
+            border-left: 4px solid var(--color-upside-down);
+            background: linear-gradient(90deg, rgba(138, 0, 212, 0.1), transparent);
+            padding: 10px;
+            margin-bottom: 15px;
+            font-style: italic;
+            color: #dcbdfc;
+            font-family: var(--font-main);
+            font-size: 1.1rem;
+            position: relative;
+        }
+        .story-line-box::before {
+            content: 'TASK OBJECTIVE';
+            position: absolute; top: -10px; left: 10px;
+            background: #000; padding: 0 5px;
+            font-size: 0.7rem; color: var(--color-upside-down);
+            font-family: var(--font-term); letter-spacing: 2px;
+        }
+
+        /* TOAST NOTIFICATION */
+        #toast {
+            visibility: hidden; 
+            min-width: 250px; 
+            background-color: #00ff41; 
+            color: #000; 
+            text-align: center; 
+            border-radius: 2px; 
+            padding: 16px; 
+            position: fixed; 
+            z-index: 300; 
+            left: 50%; 
+            bottom: 30px; 
+            transform: translateX(-50%);
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            box-shadow: 0 0 15px #00ff41;
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+    </style>
+</head>
+<body class="crt-flicker">
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast">OK - TABLE ADDED</div>
+
+    <!-- 0. 2 SECOND INTRO -->
+    <div id="screen-intro">
+        <div class="intro-text">
+            SQL<br>
+            <span style="font-size: 1.5rem; color: #fff; letter-spacing: 5px;">MULTI-TABLE PROTOCOL INITIALIZING...</span>
+        </div>
+    </div>
+
+    <!-- 1. MENU -->
+    <div id="screen-menu" class="absolute inset-0 z-50 hidden flex flex-col items-center justify-center p-4 bg-black/95">
+        <h1 class="text-7xl md:text-9xl title-glitch mb-2 text-center font-display glitch-text" data-text="HAWKINS LAB">HAWKINS LAB</h1>
+        <p class="text-cyan-400 font-terminal text-lg tracking-[0.5em] mb-12 animate-pulse">SYSTEM SECURE // MULTI-TABLE READY</p>
+        <div class="flex flex-col gap-4">
+            <button id="btn-start-flow" class="btn-retro">INITIALIZE LINK</button>
+            <button id="btn-admin-entry" class="hidden btn-retro" style="border-color: #334455; color: #445566;">ADMINISTRATOR</button>
+        </div>
+    </div>
+
+    <!-- 2. LOGIN -->
+    <div id="screen-name-input" class="absolute inset-0 z-40 hidden flex flex-col items-center justify-center p-4 bg-black/95">
+        <div class="glass-panel p-8 max-w-md w-full text-center border-t-4 border-cyan-500">
+            <h2 class="text-4xl text-cyan-500 font-display mb-4">IDENTIFY</h2>
+            <input type="text" id="input-agent-name" class="admin-input text-center text-2xl" placeholder="AGENT CODENAME">
+            <button id="btn-submit-name" class="btn-retro w-full mt-4">ACCESS TERMINAL</button>
+        </div>
+    </div>
+
+    <!-- 3. STORY SELECT -->
+    <div id="screen-story-select" class="absolute inset-0 z-30 hidden bg-black/95 overflow-y-auto">
+        <h2 class="text-5xl text-white font-display mt-8 mb-2 text-center">SELECT PROTOCOL</h2>
+        <div id="stories-container" class="story-grid"></div>
+    </div>
+
+    <!-- 4. ADMIN PANEL -->
+    <div id="screen-admin" class="absolute inset-0 z-40 hidden bg-black/95 p-4 md:p-8 flex flex-col overflow-y-auto">
+        <div class="flex justify-between items-center border-b border-cyan-900 pb-4 mb-6">
+            <h2 class="text-4xl text-cyan-500 font-display uppercase">MAINFRAME CONTROL <span class="text-sm align-top opacity-50 ml-2">v2.0</span></h2>
+            <div id="admin-status-log" class="text-xs font-terminal text-right w-64 h-6"></div>
+        </div>
+        
+        <div class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- 1. CREATE STORY & MANAGE TABLES -->
+            <div class="glass-panel p-4 border border-gray-800 flex flex-col h-full">
+                <h3 class="text-lg text-cyan-400 font-terminal mb-2">> CREATE PROTOCOL</h3>
+                <input type="text" id="adm-story-title" class="admin-input" placeholder="PROTOCOL TITLE">
+                <input type="text" id="adm-story-desc" class="admin-input" placeholder="DESCRIPTION">
+                
+                <div class="border-t border-gray-700 my-2"></div>
+                
+                <!-- NEW: OPEN WIZARD BUTTON (The "Second Choice") -->
+                <button id="btn-open-add-table-modal" class="btn-retro w-full mb-2 text-sm" style="border-style: dashed;">+ ADD TABLE (WIZARD)</button>
+                
+                <!-- LEGACY: QUICK ADD (Kept for convenience) -->
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="adm-tbl-name" class="admin-input" placeholder="NAME">
+                    <input type="text" id="adm-tbl-schema" class="admin-input" placeholder="SCHEMA">
+                </div>
+                <textarea id="adm-tbl-data" class="admin-textarea" style="height:60px" placeholder="DATA JSON"></textarea>
+                <button id="btn-add-table-quick" class="btn-action w-full mb-2">QUICK ADD</button>
+
+                <!-- Table Stack Visualizer -->
+                <div id="table-stack-container" class="flex-1 overflow-y-auto border border-gray-800 bg-black/50 p-2 mb-2 max-h-40">
+                    <div class="text-gray-600 text-center italic text-xs mt-2">NO TABLES IN PROTOCOL</div>
+                </div>
+
+                <button id="btn-save-story" class="btn-retro w-full text-sm">INITIALIZE PROTOCOL</button>
+            </div>
+
+            <!-- 2. ADD QUESTION -->
+            <div class="glass-panel p-4 border border-gray-800 flex flex-col h-full">
+                <h3 class="text-lg text-cyan-400 font-terminal mb-2">> INJECT QUERY</h3>
+                <select id="adm-select-story" class="admin-select"><option>LOADING...</option></select>
+                
+                <input type="text" id="adm-q-taskgoal" class="admin-input" placeholder="TASK GOAL (CONTEXT/HINT)" style="border-color: var(--color-upside-down); color: #dcbdfc;">
+                
+                <input type="text" id="adm-q-text" class="admin-input" placeholder="QUESTION TEXT">
+                <input type="text" id="adm-q-sql" class="admin-input" placeholder="CORRECT SQL (USE UPPERCASE)">
+                <textarea id="adm-q-output" class="admin-textarea" style="height:60px" placeholder="EXPECTED RESULT (JSON OR NUMBER)"></textarea>
+                <input type="text" id="adm-q-img" class="admin-input" placeholder="IMAGE URL (HTTPS...)">
+                <button id="btn-save-question" class="btn-retro w-full text-sm mt-auto">UPLOAD QUERY</button>
+            </div>
+
+            <!-- 3. MANAGE -->
+            <div class="glass-panel p-4 border border-cyan-900 flex flex-col h-full">
+                <h3 class="text-lg text-cyan-500 font-terminal mb-2">> PROTOCOL MANAGEMENT</h3>
+                <div id="admin-stories-list" class="flex-1 overflow-y-auto pr-2"></div>
+            </div>
+        </div>
+        <button id="btn-admin-exit" class="mt-8 text-gray-500 hover:text-cyan-400 font-terminal">[ LOGOUT ]</button>
+    </div>
+
+    <!-- 5. GAME LAB -->
+    <div id="screen-lab" class="lab-container hidden z-10">
+        <div class="visual-feed">
+            <img id="lab-scene-img" class="scene-image" src="" alt="SURVEILLANCE">
+            <div class="hud-overlay">
+                <div class="flex justify-between items-start">
+                    <div class="text-cyan-400 font-terminal text-xl animate-pulse">LIVE FEED // ACTIVE</div>
+                    <div class="text-white font-terminal text-xl bg-black/80 px-2 border border-cyan-700">
+                        T-MINUS: <span id="lab-timer">00:00</span>
+                    </div>
+                </div>
+                
+                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                    <div class="w-64 h-64 border-2 border-cyan-500 rounded-full animate-spin-slow flex items-center justify-center">
+                        <div class="w-56 h-56 border border-cyan-800 rounded-full border-dashed"></div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-end w-full">
+                    <div class="text-white font-terminal">
+                        <div class="text-xs text-gray-500">OPERATIVE</div>
+                        <div id="lab-player-name" class="text-xl font-bold text-cyan-400">UNKNOWN</div>
+                    </div>
+                    <div class="text-white font-terminal text-right">
+                        <div class="text-xs text-gray-500">DATA INTEGRITY</div>
+                        <div id="lab-score" class="text-3xl font-bold text-primary text-blue-glow">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="terminal-feed">
+            <div class="terminal-main">
+                <div class="terminal-header">
+                    <div class="flex items-center gap-4">
+                        <span class="text-cyan-600">ROOT@HAWKINS_LAB</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btn-reset-db" class="btn-action text-xs border-cyan-500 text-cyan-500">RESET ALL TABLES</button>
+                        <button id="btn-submit-final" class="btn-submit text-xs font-bold">SUBMISSION</button>
+                    </div>
+                </div>
+
+                <div class="mb-2 flex-shrink-0">
+                    <div id="mission-q-number" class="text-cyan-500 font-bold font-terminal">QUERY 01</div>
+                    <div id="mission-story-line" class="hidden story-line-box">...</div>
+                    <div id="mission-desc" class="text-gray-300 text-lg font-terminal leading-snug">...</div>
+                </div>
+
+                <div id="terminal-output" class="font-mono text-sm"></div>
+
+                <div class="sql-wrapper">
+                    <span class="text-cyan-600 text-xl">➜</span>
+                    <input type="text" id="sql-input" class="sql-input" placeholder="ENTER SQL COMMAND..." autocomplete="off">
+                    <button id="btn-run" class="btn-action">EXECUTE</button>
+                </div>
+
+                <div class="flex justify-between items-center mt-2 border-t border-gray-800 pt-2 flex-shrink:0">
+                    <button id="btn-prev" class="btn-nav">◀ PREV</button>
+                    <div class="text-gray-600 text-xs font-terminal">
+                        STATUS: <span id="status-indicator" class="text-cyan-500">PENDING</span>
+                    </div>
+                    <button id="btn-next" class="btn-nav">NEXT ▶</button>
+                </div>
+            </div>
+
+            <div class="database-sidebar">
+                <div class="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
+                    <h3 class="text-cyan-400 font-bold text-lg">DATABASE SCHEMA</h3>
+                    <div class="flex gap-2">
+                        <button id="btn-refresh-tables" class="text-xs text-gray-500 hover:text-white" title="Refresh Tables">↻</button>
+                    </div>
+                </div>
+                <div id="tables-list-container" class="space-y-3 overflow-y-auto flex-1 pr-1">
+                    <!-- Tables injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. SCORE SCREEN -->
+    <div id="screen-score" class="hidden">
+        <h2 class="text-5xl text-cyan-500 font-display mb-2">MISSION COMPLETE</h2>
+        <div class="score-circle">
+            <span id="final-score-display">0%</span>
+        </div>
+        <div class="text-gray-400 font-terminal text-xl mb-8">
+            DATA VERIFIED: <span id="final-stats" class="text-white font-bold">0/0</span>
+        </div>
+        <button id="btn-back-to-menu" class="btn-retro">RETURN TO MENU</button>
+    </div>
+
+    <!-- 7. MODAL: VIEW STORY -->
+    <div id="modal-story-view" class="modal hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h2 id="modal-title" class="text-2xl text-cyan-500 font-display">PROTOCOL DATA</h2>
+                <button id="btn-close-modal" class="text-white font-terminal text-2xl">&times;</button>
+            </div>
+            <div id="modal-questions-list" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <!-- 8. MODAL: ADD TABLE WIZARD (THE "SECOND CHOICE") -->
+    <div id="modal-add-table" class="modal hidden">
+        <div class="modal-content max-w-lg">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h2 class="text-2xl text-cyan-500 font-display">NEW TABLE CONFIG</h2>
+                <button id="btn-close-add-modal" class="text-white font-terminal text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-cyan-600 font-bold block mb-1">TABLE NAME</label>
+                    <input type="text" id="wiz-tbl-name" class="admin-input text-lg" placeholder="E.G. AGENTS">
+                </div>
+                
+                <div>
+                    <label class="text-xs text-cyan-600 font-bold block mb-1">SCHEMA DEFINITION</label>
+                    <input type="text" id="wiz-tbl-schema" class="admin-input" placeholder="E.G. ID INT, NAME STRING">
+                </div>
+                
+                <div>
+                    <label class="text-xs text-cyan-600 font-bold block mb-1">INITIAL DATA (JSON)</label>
+                    <textarea id="wiz-tbl-data" class="admin-textarea" style="height: 120px" placeholder='[{"ID": 1, "NAME": "HOPPER"}]'></textarea>
+                </div>
+
+                <div class="flex justify-between items-center pt-2">
+                    <button id="btn-gen-wiz-data" class="btn-action text-xs">GENERATE DUMMY DATA</button>
+                    <button id="btn-confirm-add-table" class="btn-retro text-sm">ADD TO PROTOCOL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- 0. INTRO ---
+            setTimeout(() => {
+                const intro = document.getElementById('screen-intro');
+                if(intro) intro.classList.add('hidden');
+                const menu = document.getElementById('screen-menu');
+                if(menu) menu.classList.remove('hidden');
+                playSound('welcome');
+            }, 2000);
+
+            // --- CONFIG & STATE ---
+            const SUPABASE_URL = 'https://raulrfxcusecsfburklf.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhdWxyZnhjdXNlY3NmYnVya2xmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NjQ4MjAsImV4cCI6MjA4ODE0MDgyMH0.B_aEWhF339tkpXjM83vNSeDr8u1b4lGBONcbXRzQINI';
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            
+            const State = {
+                player: { name: 'Unknown', score: 0 },
+                currentStory: null,
+                questions: [],
+                qIndex: 0,
+                answers: [], 
+                timerInterval: null,
+                startTime: 0,
+                adminTableStack: [] 
+            };
+
+            // --- HELPERS ---
+            function safeSetText(id, text) { const el = document.getElementById(id); if (el) el.innerText = text; }
+            function safeSetValue(id, value) { const el = document.getElementById(id); if (el) el.value = value; }
+            function toUpper(str) { return str ? str.toUpperCase().trim() : ''; }
+            
+            function normalizeDataKeys(data) {
+                if (!data) return data;
+                if (Array.isArray(data)) {
+                    return data.map(row => {
+                        const newRow = {};
+                        Object.keys(row).forEach(key => { newRow[toUpper(key)] = row[key]; });
+                        return newRow;
+                    });
+                }
+                return data;
+            }
+
+            // --- VALIDATION ENGINE ---
+            function isDataMatch(userResult, expectedResult) {
+                if (typeof userResult === 'string' && typeof expectedResult === 'string') return userResult === expectedResult;
+                if (typeof userResult === 'number' && typeof expectedResult === 'number') return userResult === expectedResult;
+                if (Array.isArray(userResult) && Array.isArray(expectedResult)) {
+                    if (userResult.length !== expectedResult.length) return false;
+                    for (let i = 0; i < userResult.length; i++) {
+                        if (!isObjectEqual(userResult[i], expectedResult[i])) return false;
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            function isObjectEqual(obj1, obj2) {
+                const keys1 = Object.keys(obj1);
+                const keys2 = Object.keys(obj2);
+                if (keys1.length !== keys2.length) return false;
+                for (let key of keys1) {
+                    if (!obj2.hasOwnProperty(key)) return false;
+                    if (obj1[key] !== obj2[key]) return false;
+                }
+                return true;
+            }
+
+            // --- AUDIO ---
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const audioCtx = new AudioCtx();
+
+            function playSound(type) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'welcome') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 2);
+                    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.5);
+                    osc.start(); osc.stop(audioCtx.currentTime + 2.5);
+                } else if (type === 'error') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'success') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(900, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'create') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+                }
+            }
+
+            if(window.location.hash === '#admin') {
+                const btnAdmin = document.getElementById('btn-admin-entry');
+                if(btnAdmin) btnAdmin.classList.remove('hidden');
+            }
+
+            // --- TOAST FUNCTION ---
+            function showToast(message) {
+                const toast = document.getElementById("toast");
+                if(toast) {
+                    toast.innerText = message;
+                    toast.className = "show";
+                    setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+                }
+            }
+
+            const Game = {
+                hideAll: () => document.querySelectorAll('[id^="screen-"]').forEach(e => e.classList.add('hidden')),
+                showMenu: () => { Game.hideAll(); document.getElementById('screen-menu').classList.remove('hidden'); playSound('welcome'); },
+
+                initFlow: () => {
+                    Game.hideAll();
+                    const nameScreen = document.getElementById('screen-name-input');
+                    if(nameScreen) nameScreen.classList.remove('hidden');
+                },
+
+                submitName: async () => {
+                    const name = toUpper(document.getElementById('input-agent-name').value);
+                    if (!name) return Game.log("IDENTIFICATION REQUIRED", 'text-red-500');
+                    State.player.name = name;
+                    Game.loadStorySelect();
+                },
+
+                loadStorySelect: async () => {
+                    Game.hideAll();
+                    const storyScreen = document.getElementById('screen-story-select');
+                    if(storyScreen) storyScreen.classList.remove('hidden');
+                    
+                    const container = document.getElementById('stories-container');
+                    if(!container) return;
+                    container.innerHTML = '<div class="text-cyan-500 font-terminal animate-pulse text-center w-full">CONNECTING TO DATABASE...</div>';
+                    
+                    try {
+                        const { data, error } = await supabase.from('stories').select('*');
+                        if (error) throw error;
+                        container.innerHTML = '';
+                        if (!data || data.length === 0) {
+                            container.innerHTML = '<div class="text-red-500 font-terminal text-center">NO PROTOCOLS DETECTED. PLEASE VISIT ADMIN PANEL.</div>';
+                            return;
+                        }
+
+                        data.forEach(story => {
+                            const card = document.createElement('div');
+                            card.className = 'story-card';
+                            let tableCount = 0;
+                            try {
+                                const parsed = JSON.parse(story.initial_data);
+                                if(Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0].name) {
+                                    tableCount = parsed.length;
+                                } else { tableCount = 1; }
+                            } catch(e) { tableCount = 1; }
+
+                            card.innerHTML = `
+                                <div class="classified-stamp">TOP SECRET</div>
+                                <div class="story-header">
+                                    <span class="text-xs text-cyan-600 font-terminal">FILE #00${story.id}</span>
+                                    <span class="text-xs text-purple-500 font-terminal border border-purple-900 px-1">TABLES: ${tableCount}</span>
+                                </div>
+                                <div class="story-body">
+                                    <h3 class="text-3xl text-cyan-400 font-display mb-4 glitch-text" data-text="${toUpper(story.title)}">${toUpper(story.title)}</h3>
+                                    <p class="text-gray-400 font-terminal text-lg leading-tight">${story.description}</p>
+                                </div>
+                                <div class="story-footer">
+                                    <span>STATUS: ACTIVE</span>
+                                </div>
+                            `;
+                            card.onclick = async () => { try { await Game.startStory(story); } catch (err) { console.error(err); Game.log("CRITICAL START ERROR: " + err.message, 'text-red-500'); } };
+                            container.appendChild(card);
+                        });
+                    } catch (e) {
+                        console.error(e);
+                        if(container) container.innerHTML = `<div class="text-red-500 text-center">ERROR LOADING STORIES: ${e.message}</div>`;
+                    }
+                },
+
+                updateTableList: () => {
+                    const container = document.getElementById('tables-list-container');
+                    if(!container) return;
+                    container.innerHTML = '';
+                    try {
+                        const tables = alasql('SHOW TABLES');
+                        if(!tables || tables.length === 0) {
+                            container.innerHTML = '<div class="text-gray-600 text-center italic mt-4">NO TABLES FOUND IN DIMENSION</div>';
+                            return;
+                        }
+                        tables.forEach(t => {
+                            const tableName = t.tableid; 
+                            let columnsHtml = '';
+                            try {
+                                const sample = alasql(`SELECT TOP 1 * FROM [${tableName}]`);
+                                if(sample && sample.length > 0) {
+                                    const cols = Object.keys(sample[0]);
+                                    columnsHtml = `
+                                        <div class="text-xs text-gray-400 mt-1 border-t border-gray-800 pt-1">
+                                            <div class="font-bold text-cyan-500 mb-1">COLUMNS (${cols.length})</div>
+                                            <div class="flex flex-wrap gap-1">
+                                                ${cols.map(c => `<span class="bg-gray-800 px-1 rounded text-[10px] text-gray-300">${c}</span>`).join('')}
+                                            </div>
+                                        </div>`;
+                                } else { columnsHtml = `<div class="text-xs text-gray-500 mt-1">[ EMPTY TABLE ]</div>`; }
+                            } catch(e) { columnsHtml = `<div class="text-xs text-red-500 mt-1">[ CORRUPTED ]</div>`; }
+
+                            const div = document.createElement('div');
+                            div.className = 'bg-black/60 border border-cyan-900 p-3 hover:border-cyan-400 hover:bg-cyan-900/20 cursor-pointer transition-all group animate-pulse-once';
+                            div.style.animation = "fadeIn 0.5s ease";
+                            div.innerHTML = `
+                                <div class="flex items-center justify-between">
+                                    <div class="text-cyan-300 font-bold font-terminal text-lg truncate group-hover:text-white">${toUpper(tableName)}</div>
+                                    <div class="text-cyan-600 opacity-0 group-hover:opacity-100">+</div>
+                                </div>
+                                ${columnsHtml}
+                            `;
+                            div.onclick = () => {
+                                const input = document.getElementById('sql-input');
+                                if(input) {
+                                    input.value = (input.value + " [" + tableName + "]").trim();
+                                    input.focus();
+                                }
+                            };
+                            container.appendChild(div);
+                        });
+                    } catch (e) {
+                        console.error("Error fetching table list:", e);
+                        container.innerHTML = '<div class="text-red-500 text-center mt-4">ERROR READING DB</div>';
+                    }
+                },
+
+                startStory: async (story) => {
+                    State.currentStory = story;
+                    State.player.score = 0;
+                    State.qIndex = 0;
+                    State.answers = new Array(20).fill(null);
+
+                    // --- FIX: SAFE DROP TABLES (Using User's Logic) ---
+                    try {
+                        const tables = Object.keys(alasql.tables);
+                        if (tables && tables.length > 0) {
+                            tables.forEach(table => {
+                                alasql("DROP TABLE IF EXISTS " + table);
+                            });
+                            console.log("All tables removed");
+                        }
+                    } catch (e) {
+                        console.warn("Error dropping tables (might be first run):", e);
+                    }
+                    // -----------------------------------
+
+                    try {
+                        let tablesToCreate = [];
+                        try {
+                            const parsedData = JSON.parse(story.initial_data);
+                            if (Array.isArray(parsedData) && parsedData.length > 0 && typeof parsedData[0] === 'object' && parsedData[0].name) {
+                                tablesToCreate = parsedData;
+                            } else {
+                                tablesToCreate = [{ name: story.table_name || "MAIN_TABLE", schema: story.schema_def, data: parsedData }];
+                            }
+                        } catch (e) { tablesToCreate = [{ name: "UNKNOWN_TABLE", schema: "ID INT, DATA STRING", data: [] }]; }
+
+                        tablesToCreate.forEach(t => {
+                            if(!t.name) return;
+                            const cleanName = toUpper(t.name.replace(/[^a-zA-Z0-9_]/g, ''));
+                            alasql(`CREATE TABLE IF NOT EXISTS [${cleanName}] (${t.schema})`);
+                            if(t.data && Array.isArray(t.data)) { alasql(`SELECT * INTO [${cleanName}] FROM ?`, [t.data]); }
+                        });
+                    } catch(e) { console.error("SQL SETUP ERROR:", e); Game.log("SCHEMA SETUP FAILED: " + e.message, 'text-red-500'); return; }
+                    
+                    try {
+                        const { data: qData, error } = await supabase.from('questions').select('*').eq('story_id', story.id).limit(20);
+                        if (error) throw error;
+                        if (!qData || qData.length === 0) {
+                            Game.log("ERROR: NO QUESTIONS FOUND FOR THIS STORY.", 'text-red-500');
+                            Game.loadStorySelect(); return;
+                        }
+                        State.questions = qData;
+                    } catch(e) { console.error(e); Game.log("FAILED TO LOAD QUESTIONS: " + e.message, 'text-red-500'); return; }
+
+                    Game.hideAll();
+                    const labScreen = document.getElementById('screen-lab');
+                    if(labScreen) labScreen.classList.remove('hidden');
+                    safeSetText('lab-player-name', State.player.name);
+                    Game.updateTableList();
+                    Game.startTime = Date.now();
+                    if(State.timerInterval) clearInterval(State.timerInterval);
+                    State.timerInterval = setInterval(() => {
+                        const s = Math.floor((Date.now() - Game.startTime) / 1000);
+                        const m = Math.floor(s / 60).toString().padStart(2, '0');
+                        const sec = (s % 60).toString().padStart(2, '0');
+                        safeSetText('lab-timer', `${m}:${sec}`);
+                    }, 1000);
+                    Game.loadQuestion(0);
+                },
+
+                loadQuestion: (idx) => {
+                    if (idx < 0 || idx >= State.questions.length) return;
+                    State.qIndex = idx;
+                    const q = State.questions[idx];
+                    if(!q) return;
+                    const out = document.getElementById('terminal-output');
+                    if(out) out.innerHTML = '';
+                    safeSetText('mission-q-number', `QUERY ${String(idx+1).padStart(2,'0')} / ${State.questions.length}`);
+                    const storylineEl = document.getElementById('mission-story-line');
+                    if(q.task_goal && q.task_goal.trim() !== "") {
+                        storylineEl.innerText = q.task_goal;
+                        storylineEl.classList.remove('hidden');
+                    } else { storylineEl.classList.add('hidden'); }
+                    safeSetText('mission-desc', q.question_text);
+                    safeSetValue('sql-input', '');
+                    const imgEl = document.getElementById('lab-scene-img');
+                    if(imgEl) imgEl.src = q.image_url || 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070';
+
+                    const statusEl = document.getElementById('status-indicator');
+                    if (State.answers[idx] === true) {
+                        if(statusEl) { statusEl.innerText = "VERIFIED"; statusEl.className = "text-green-500"; }
+                        safeSetValue('sql-input', "COMPLETED - LOCKED");
+                        document.getElementById('sql-input').disabled = true;
+                    } else if (State.answers[idx] === false) {
+                        if(statusEl) { statusEl.innerText = "FAILED"; statusEl.className = "text-red-500"; }
+                        document.getElementById('sql-input').disabled = false;
+                    } else {
+                        if(statusEl) { statusEl.innerText = "PENDING"; statusEl.className = "text-cyan-500"; }
+                        document.getElementById('sql-input').disabled = false;
+                    }
+                    document.getElementById('btn-prev').disabled = idx === 0;
+                    document.getElementById('btn-next').disabled = idx === State.questions.length - 1;
+                    Game.log(`> LOADING SECTOR ${idx+1}...`, 'text-gray-600');
+                },
+
+                // --- INTEGRATING USER'S CUSTOM LOGIC HERE ---
+                runQuery: () => {
+                    if (State.answers[State.qIndex] === true) return;
+                    const input = document.getElementById('sql-input');
+                    if(!input) return;
+                    
+                    // ENFORCE UPPERCASE (As requested)
+                    let val = toUpper(input.value).trim();
+                    if (!val) return;
+
+                    let userResult = null;
+                    let schemaChanged = false;
+
+                    try {
+                        // --- CUSTOM LOGIC START ---
+                        if (val === "DROP TABLE IF EXISTS *") {
+                            // get all tables
+                            const tables = Object.keys(alasql.tables);
+                            // drop each table
+                            tables.forEach(table => {
+                                alasql("DROP TABLE IF EXISTS " + table);
+                            });
+                            console.log("All tables removed");
+                            Game.log(`> ALL TABLES PURGED SUCCESSFULLY.`, 'text-red-400');
+                            playSound('drop');
+                            Game.updateTableList();
+                            return; // Stop execution here
+                        }
+                        // --- CUSTOM LOGIC END ---
+
+                        if (val.match(/^CREATE\s+TABLE/i)) {
+                            userResult = alasql(val);
+                            schemaChanged = true; 
+                            playSound('create');
+                            if (val.includes('AS SELECT')) {
+                                Game.log(`> TABLE CREATED & POPULATED VIA SELECT.`, 'text-green-500');
+                                if(typeof userResult === 'number') Game.log(`> ${userResult} ROWS AFFECTED.`, 'text-cyan-400');
+                            } else {
+                                if(typeof userResult === 'number') Game.log(`> EXECUTION COMPLETE. AFFECTED ROWS: ${userResult}`, 'text-green-500');
+                            }
+                        }
+                        else if (val.match(/^DROP\s+TABLE/i)) {
+                            userResult = alasql(val);
+                            schemaChanged = true;
+                            playSound('drop');
+                            Game.log(`> TABLE DROPPED SUCCESSFULLY.`, 'text-red-400');
+                        }
+                        else if (val.match(/^(CREATE DATABASE|DROP DATABASE|USE DATABASE)/)) {
+                            userResult = "COMMAND ACKNOWLEDGED. SIMULATED.";
+                        } 
+                        else if (val === "BEGIN TRANSACTION") { userResult = "TRANSACTION STARTED."; }
+                        else if (val === "COMMIT" || val === "ROLLBACK") { userResult = "TRANSACTION ENDED."; }
+                        else { userResult = alasql(val); }
+
+                        Game.log(`➜ ${val}`, 'text-white font-bold');
+                        if (typeof userResult === 'string') {
+                            Game.log(`> ${userResult}`, 'text-cyan-400');
+                        } else if (typeof userResult === 'number') {
+                             Game.log(`> EXECUTION COMPLETE. AFFECTED ROWS: ${userResult}`, 'text-green-500');
+                        } else if (Array.isArray(userResult)) {
+                            if(userResult.length > 0) {
+                                const keys = Object.keys(userResult[0]);
+                                let html = `<div class="mt-2 text-xs text-gray-500 border-b border-gray-800 flex gap-2">`;
+                                keys.forEach(k => html += `<div class="flex-1">${toUpper(k)}</div>`); 
+                                html += `</div>`;
+                                userResult.forEach((r, i) => {
+                                    html += `<div class="flex gap-2 py-1 text-sm border-b border-gray-900 ${i%2===0?'bg-black/50':''}">`;
+                                    keys.forEach(k => html += `<div class="flex-1 text-cyan-400 truncate">${r[k]}</div>`);
+                                    html += `</div>`;
+                                });
+                                Game.log(html);
+                            } else { Game.log(`> 0 ROWS RETURNED.`, 'text-gray-500'); }
+                        } else { Game.log(`> EXECUTION SUCCESS.`, 'text-green-500'); }
+
+                        if (schemaChanged) { Game.updateTableList(); }
+
+                        const currentQ = State.questions[State.qIndex];
+                        const expected = currentQ.expected_output;
+                        const isMatch = isDataMatch(userResult, expected);
+
+                        if (isMatch) {
+                            playSound('success');
+                            Game.log(`> DATA INTEGRITY VERIFIED.`, 'text-green-500 font-bold');
+                            State.answers[State.qIndex] = true;
+                            State.player.score++;
+                            safeSetText('lab-score', Math.round((State.player.score / State.questions.length) * 100) + "%");
+                            setTimeout(() => {
+                                if(State.qIndex < State.questions.length - 1) Game.loadQuestion(State.qIndex + 1);
+                            }, 1000);
+                        } else {
+                            playSound('error');
+                            State.answers[State.qIndex] = false;
+                            if(val.match(/^CREATE\s+TABLE/i) && Array.isArray(expected)) {
+                                Game.log(`> HINT: CHECK TABLE CREATION SYNTAX. EXPECTED OUTPUT MAY BE DATA OR ROW COUNT.`, 'text-yellow-500');
+                            } else {
+                                Game.log(`> INTEGRITY FAILURE. CHECK CONSOLE (F12) FOR DETAILS.`, 'text-red-500 font-bold');
+                            }
+                        }
+
+                    } catch (e) {
+                        playSound('error');
+                        Game.log(`> ERROR: ${e.message}`, 'text-red-600 font-bold');
+                    }
+                },
+
+                submitMission: () => {
+                    const attended = State.answers.filter(a => a === true).length;
+                    const total = State.questions.length;
+                    clearInterval(State.timerInterval);
+                    Game.hideAll();
+                    const scoreScreen = document.getElementById('screen-score');
+                    if(scoreScreen) scoreScreen.classList.remove('hidden');
+                    const percentage = Math.round((attended/total)*100);
+                    safeSetText('final-score-display', percentage + "%");
+                    safeSetText('final-stats', `${attended}/${total} QUERIES`);
+                },
+
+                log: (msg, cls = 'text-gray-300') => {
+                    const out = document.getElementById('terminal-output');
+                    if (out) {
+                        out.innerHTML += `<div class="${cls} mb-1">${msg}</div>`;
+                        out.scrollTop = out.scrollHeight;
+                    }
+                    const adminOut = document.getElementById('admin-status-log');
+                    if (adminOut) {
+                        adminOut.innerText = msg;
+                        adminOut.className = `text-xs font-terminal text-right w-64 h-6 ${cls}`;
+                        if (window.adminLogTimeout) clearTimeout(window.adminLogTimeout);
+                        window.adminLogTimeout = setTimeout(() => {
+                            adminOut.innerText = ''; adminOut.className = 'text-xs font-terminal text-right w-64 h-6';
+                        }, 3000);
+                    }
+                    console.log(`[LOG] ${msg}`);
+                },
+
+                showAdmin: () => {
+                    Game.hideAll();
+                    document.getElementById('screen-admin').classList.remove('hidden');
+                    Game.loadAdminStories();
+                    Game.renderAdminList();
+                    State.adminTableStack = [];
+                    Game.renderAdminTableStack();
+                },
+
+                // --- LOGIC TO ADD TABLE ---
+                addToStack: (name, schema, rawData) => {
+                    try {
+                        if(!name) throw new Error("TABLE NAME MISSING");
+                        if(!schema) throw new Error("SCHEMA MISSING");
+
+                        let data = [];
+                        if(rawData && rawData.trim() !== "") {
+                            try { 
+                                data = JSON.parse(rawData); 
+                            } catch(e) { throw new Error("INVALID JSON DATA FORMAT"); }
+                        }
+
+                        // Add to memory
+                        State.adminTableStack.push({ name: toUpper(name), schema: toUpper(schema), data: data });
+                        
+                        // Render
+                        Game.renderAdminTableStack();
+                        playSound('success');
+                        showToast("OK - TABLE ADDED TO PROTOCOL");
+                        
+                        // Clear inputs if provided
+                        document.getElementById('wiz-tbl-name').value = '';
+                        document.getElementById('wiz-tbl-schema').value = '';
+                        document.getElementById('wiz-tbl-data').value = '';
+                        document.getElementById('adm-tbl-name').value = '';
+                        document.getElementById('adm-tbl-schema').value = '';
+                        document.getElementById('adm-tbl-data').value = '';
+
+                    } catch (e) {
+                        playSound('error');
+                        alert("ERROR ADDING TABLE: " + e.message);
+                        console.error(e);
+                    }
+                },
+
+                removeFromStack: (index) => {
+                    State.adminTableStack.splice(index, 1);
+                    Game.renderAdminTableStack();
+                },
+
+                renderAdminTableStack: () => {
+                    const container = document.getElementById('table-stack-container');
+                    container.innerHTML = '';
+                    if(State.adminTableStack.length === 0) {
+                        container.innerHTML = '<div class="text-gray-600 text-center italic text-xs mt-2">NO TABLES IN PROTOCOL</div>';
+                        return;
+                    }
+                    State.adminTableStack.forEach((t, idx) => {
+                        const div = document.createElement('div');
+                        div.className = 'table-stack-item';
+                        div.innerHTML = `
+                            <div>
+                                <div class="text-cyan-400 font-bold text-sm">${t.name}</div>
+                                <div class="text-gray-500 text-xs truncate" style="max-width: 200px">${t.schema}</div>
+                            </div>
+                            <button class="btn-action btn-danger text-xs" onclick="Game.removeFromStack(${idx})">DEL</button>
+                        `;
+                        container.appendChild(div);
+                    });
+                },
+
+                loadAdminStories: async () => {
+                    try {
+                        const { data } = await supabase.from('stories').select('*');
+                        const sel = document.getElementById('adm-select-story');
+                        if(!sel) return;
+                        sel.innerHTML = '<option value="">SELECT PROTOCOL...</option>';
+                        if(data) data.forEach(s => sel.add(new Option(s.title, s.id)));
+                    } catch(e) { console.error(e); }
+                },
+
+                renderAdminList: async () => {
+                    try {
+                        const { data } = await supabase.from('stories').select('*');
+                        const list = document.getElementById('admin-stories-list');
+                        if(!list) return;
+                        list.innerHTML = '';
+                        if(!data) return;
+                        data.forEach(s => {
+                            const div = document.createElement('div');
+                            div.className = 'flex justify-between items-center bg-black border border-gray-800 p-2 mb-1';
+                            div.innerHTML = `
+                                <span class="text-cyan-500 font-terminal">${toUpper(s.title)}</span>
+                                <div class="flex gap-2">
+                                    <button class="btn-action text-xs" onclick="Game.viewStory(${s.id})">VIEW</button>
+                                    <button class="btn-action text-xs border-red-500 text-red-500" onclick="Game.deleteStory(${s.id})">DEL</button>
+                                </div>
+                            `;
+                            list.appendChild(div);
+                        });
+                    } catch(e) { console.error(e); }
+                },
+
+                viewStory: async (id) => {
+                    const { data: questions } = await supabase.from('questions').select('*').eq('story_id', id);
+                    const modal = document.getElementById('modal-story-view');
+                    const content = document.getElementById('modal-questions-list');
+                    const title = document.getElementById('modal-title');
+                    if(!modal || !content || !title) return;
+                    const { data: story } = await supabase.from('stories').select('title').eq('id', id).single();
+                    title.innerText = story ? toUpper(story.title) : "PROTOCOL DATA";
+                    content.innerHTML = '';
+                    if(!questions || questions.length === 0) {
+                        content.innerHTML = '<div class="text-gray-500">NO DATA FOUND</div>';
+                    } else {
+                        questions.forEach((q, idx) => {
+                            const item = document.createElement('div');
+                            item.className = 'border border-gray-700 p-3 bg-gray-900';
+                            const storylineDisplay = q.task_goal ? `<div class="text-purple-400 text-xs italic mb-1 border-l-2 border-purple-500 pl-2">"${q.task_goal}"</div>` : '';
+                            item.innerHTML = `
+                                <div class="text-cyan-400 font-bold mb-1">Q${idx+1}: ${q.question_text}</div>
+                                ${storylineDisplay}
+                                <div class="text-xs text-gray-400 mb-1">SQL: ${toUpper(q.expected_query)}</div>
+                                <div class="text-xs text-gray-400 mb-2">OUT: ${JSON.stringify(q.expected_output)}</div>
+                                ${q.image_url ? `<img src="${q.image_url}" class="h-20 w-20 object-cover border border-cyan-900">` : ''}
+                            `;
+                            content.appendChild(item);
+                        });
+                    }
+                    modal.classList.remove('hidden');
+                },
+
+                saveStory: async () => {
+                    const title = toUpper(document.getElementById('adm-story-title').value);
+                    const desc = toUpper(document.getElementById('adm-story-desc').value);
+                    
+                    if(!title) { alert("TITLE REQUIRED"); return; }
+                    if(State.adminTableStack.length === 0) { alert("AT LEAST ONE TABLE REQUIRED"); return; }
+
+                    // This is where the stack is saved to the database
+                    const cleanStack = State.adminTableStack.map(t => ({
+                        name: t.name,
+                        schema: t.schema,
+                        data: normalizeDataKeys(t.data)
+                    }));
+
+                    try {
+                        const { error } = await supabase.from('stories').insert([{
+                            title, 
+                            table_name: "MULTI_TABLE_SYSTEM",
+                            schema_def: "SYSTEM_DEFINED",
+                            initial_data: JSON.stringify(cleanStack), // Storing the whole stack here
+                            description: desc
+                        }]);
+                        if(error) throw error;
+                        
+                        alert("PROTOCOL CREATED SUCCESSFULLY");
+                        document.getElementById('adm-story-title').value = '';
+                        document.getElementById('adm-story-desc').value = '';
+                        State.adminTableStack = []; // Clear memory after save
+                        Game.renderAdminTableStack();
+                        
+                        Game.renderAdminList();
+                        Game.loadAdminStories();
+                    } catch(e) {
+                        alert("SAVE FAILED: " + e.message);
+                    }
+                },
+
+                saveQuestion: async () => {
+                    const sid = document.getElementById('adm-select-story').value;
+                    const taskGoal = document.getElementById('adm-q-taskgoal').value;
+                    const txt = toUpper(document.getElementById('adm-q-text').value);
+                    const sql = toUpper(document.getElementById('adm-q-sql').value);
+                    const out = document.getElementById('adm-q-output').value;
+                    const img = document.getElementById('adm-q-img').value;
+
+                    if(!sid) { alert("SELECT PROTOCOL"); return; }
+                    if(!txt || !sql) { alert("MISSING FIELDS"); return; }
+
+                    let jsonOut = [];
+                    try { 
+                        jsonOut = JSON.parse(out || "[]"); 
+                        jsonOut = normalizeDataKeys(jsonOut);
+                        jsonOut = JSON.parse(JSON.stringify(jsonOut));
+                    } catch(e) { return alert("INVALID JSON: " + e.message); }
+
+                    try {
+                        const { error } = await supabase.from('questions').insert([{
+                            story_id: sid, 
+                            task_goal: taskGoal,
+                            question_text: txt, 
+                            expected_query: sql, 
+                            expected_output: jsonOut, 
+                            image_url: img
+                        }]);
+                        if(error) throw error;
+                        alert("QUERY INJECTED");
+                        document.getElementById('adm-q-taskgoal').value = '';
+                        document.getElementById('adm-q-text').value = '';
+                        document.getElementById('adm-q-sql').value = '';
+                        document.getElementById('adm-q-output').value = '';
+                        document.getElementById('adm-q-img').value = '';
+                    } catch(e) {
+                        alert("INJECT FAILED: " + e.message);
+                    }
+                },
+
+                deleteStory: async (id) => {
+                    if(confirm("DELETE PROTOCOL?")) {
+                        await supabase.from('questions').delete().eq('story_id', id);
+                        await supabase.from('stories').delete().eq('id', id);
+                        Game.renderAdminList();
+                        Game.loadAdminStories();
+                    }
+                },
+
+                generateData: (targetPrefix) => {
+                    const schemaInput = targetPrefix === 'wiz' ? document.getElementById('wiz-tbl-schema') : document.getElementById('adm-tbl-schema');
+                    const dataInput = targetPrefix === 'wiz' ? document.getElementById('wiz-tbl-data') : document.getElementById('adm-tbl-data');
+                    
+                    const schema = toUpper(schemaInput.value);
+                    if(!schema) { alert("ENTER SCHEMA FIRST"); return; }
+                    
+                    const cols = schema.split(',').map(c => c.trim().split(' ')[0]);
+                    const data = [];
+                    for(let i=1; i<=5; i++) {
+                        let r = {};
+                        cols.forEach(c => r[c] = `VAL_${i}_${Math.floor(Math.random()*100)}`);
+                        data.push(r);
+                    }
+                    dataInput.value = JSON.stringify(data, null, 2);
+                }
+            };
+
+            window.Game = Game;
+
+            // Event Listeners
+            document.getElementById('btn-start-flow').onclick = Game.initFlow;
+            document.getElementById('btn-admin-entry').onclick = Game.showAdmin;
+            document.getElementById('btn-submit-name').onclick = Game.submitName;
+            document.getElementById('input-agent-name').onkeypress = (e) => { if(e.key==='Enter') Game.submitName(); };
+            document.getElementById('btn-run').onclick = Game.runQuery;
+            document.getElementById('sql-input').onkeypress = (e) => { if(e.key==='Enter') Game.runQuery(); };
+            document.getElementById('btn-prev').onclick = () => Game.loadQuestion(State.qIndex - 1);
+            document.getElementById('btn-next').onclick = () => Game.loadQuestion(State.qIndex + 1);
+            document.getElementById('btn-submit-final').onclick = Game.submitMission;
+            document.getElementById('btn-reset-db').onclick = () => { if(State.currentStory) Game.startStory(State.currentStory); };
+            document.getElementById('btn-back-to-menu').onclick = Game.showMenu;
+            document.getElementById('btn-refresh-tables').onclick = () => { Game.updateTableList(); };
+            
+            // Admin Events
+            document.getElementById('btn-save-story').onclick = Game.saveStory;
+            document.getElementById('btn-save-question').onclick = Game.saveQuestion;
+            
+            // Quick Add (Legacy)
+            document.getElementById('btn-add-table-quick').onclick = () => {
+                const name = document.getElementById('adm-tbl-name').value;
+                const schema = document.getElementById('adm-tbl-schema').value;
+                const data = document.getElementById('adm-tbl-data').value;
+                Game.addToStack(name, schema, data);
+            };
+            document.getElementById('btn-gen-random-data').onclick = () => Game.generateData('quick');
+
+            // Wizard Events (New Choice)
+            document.getElementById('btn-open-add-table-modal').onclick = () => {
+                document.getElementById('modal-add-table').classList.remove('hidden');
+            };
+            document.getElementById('btn-close-add-modal').onclick = () => {
+                document.getElementById('modal-add-table').classList.add('hidden');
+            };
+            document.getElementById('btn-confirm-add-table').onclick = () => {
+                const name = document.getElementById('wiz-tbl-name').value;
+                const schema = document.getElementById('wiz-tbl-schema').value;
+                const data = document.getElementById('wiz-tbl-data').value;
+                
+                Game.addToStack(name, schema, data);
+                
+                // Close modal only if successful
+                document.getElementById('modal-add-table').classList.add('hidden');
+            };
+            document.getElementById('btn-gen-wiz-data').onclick = () => Game.generateData('wiz');
+
+            document.getElementById('btn-admin-exit').onclick = Game.showMenu;
+            
+            document.getElementById('btn-close-modal').onclick = () => {
+                document.getElementById('modal-story-view').classList.add('hidden');
+            };
+        });
+    </script>
+</body>
+</html>
